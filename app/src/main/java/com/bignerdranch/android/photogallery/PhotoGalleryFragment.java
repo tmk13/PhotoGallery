@@ -1,20 +1,18 @@
 package com.bignerdranch.android.photogallery;
 
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+
+import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +23,6 @@ public class PhotoGalleryFragment extends Fragment {
 
     private RecyclerView mPhotoRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
-    private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
 
     public static Fragment newInstance() {
         return new PhotoGalleryFragment();
@@ -36,16 +33,6 @@ public class PhotoGalleryFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
         new FetchItemsTask().execute();
-
-        Handler responseHandler = new Handler();
-        mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
-        mThumbnailDownloader.setThumbnailDownloadListener((photoHolder, bitmap) -> {
-            Drawable drawable = new BitmapDrawable(getResources(), bitmap);
-            photoHolder.bindDrawable(drawable);
-        });
-        mThumbnailDownloader.start();
-        mThumbnailDownloader.getLooper();
-        Log.i(TAG, "Background thread started");
     }
 
     @Nullable
@@ -59,19 +46,6 @@ public class PhotoGalleryFragment extends Fragment {
         setupAdapter();
 
         return view;
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-        mThumbnailDownloader.clearQueue();
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        mThumbnailDownloader.quit();
-        Log.i(TAG, "Background thread destroyed");
     }
 
     private void setupAdapter() {
@@ -89,8 +63,11 @@ public class PhotoGalleryFragment extends Fragment {
             mItemImageView = itemView.findViewById(R.id.item_image_view);
         }
 
-        public void bindDrawable(Drawable drawable) {
-            mItemImageView.setImageDrawable(drawable);
+        public void bindGalleryItem(GalleryItem galleryItem) {
+            Picasso.get()
+                    .load(galleryItem.getUrl())
+                    .placeholder(R.drawable.bill_up_close)
+                    .into(mItemImageView);
         }
     }
 
@@ -113,23 +90,7 @@ public class PhotoGalleryFragment extends Fragment {
         @Override
         public void onBindViewHolder(@NonNull PhotoHolder holder, int position) {
             GalleryItem galleryItem = mGalleryItems.get(position);
-            Drawable placeholder = getResources().getDrawable(R.drawable.bill_up_close);
-            holder.bindDrawable(placeholder);
-            mThumbnailDownloader.queueThumbnail(holder, galleryItem.getUrl());
-
-            for (int i = 1; i <= 10; i++) {
-                if (position - i >= 0) {
-                    GalleryItem preloadedItem = mGalleryItems.get(position - i);
-                    mThumbnailDownloader.preload(preloadedItem.getUrl());
-                }
-            }
-
-            for (int i = 1; i <= 10; i++) {
-                if (position + i < mGalleryItems.size()) {
-                    GalleryItem preloadedItem = mGalleryItems.get(position + i);
-                    mThumbnailDownloader.preload(preloadedItem.getUrl());
-                }
-            }
+            holder.bindGalleryItem(galleryItem);
         }
 
         @Override
