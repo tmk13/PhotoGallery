@@ -1,6 +1,9 @@
 package com.bignerdranch.android.photogallery;
 
+import android.app.Dialog;
+import android.graphics.Color;
 import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -8,6 +11,7 @@ import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.SearchView;
@@ -28,6 +32,7 @@ public class PhotoGalleryFragment extends Fragment {
     private static final String TAG = "PhotoGalleryFragment";
 
     private RecyclerView mPhotoRecyclerView;
+    private Dialog mProgressDialog;
     private List<GalleryItem> mItems = new ArrayList<>();
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
 
@@ -40,6 +45,7 @@ public class PhotoGalleryFragment extends Fragment {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
         setHasOptionsMenu(true);
+        createDialog();
         updateItems();
 
         Handler responseHandler = new Handler();
@@ -78,8 +84,16 @@ public class PhotoGalleryFragment extends Fragment {
             @Override
             public boolean onQueryTextSubmit(String query) {
                 Log.d(TAG, "QueryTextSubmit: " + query);
+
+
+
+                mItems.clear();
+                setupAdapter();
+
                 QueryPreferences.setStoredQuery(getActivity(), query);
                 updateItems();
+                PhotoGalleryUtils.hideKeyboardFrom(getActivity());
+                searchView.onActionViewCollapsed();
                 return true;
             }
 
@@ -132,6 +146,22 @@ public class PhotoGalleryFragment extends Fragment {
         }
     }
 
+    private void createDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+        //View view = getLayoutInflater().inflate(R.layout.progress);
+        builder.setView(R.layout.progress);
+        mProgressDialog = builder.create();
+        mProgressDialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+    }
+
+    private void showProgressDialog() {
+        mProgressDialog.show();
+    }
+
+    private void dismissProgressDialog() {
+        mProgressDialog.dismiss();
+    }
+
     private class PhotoHolder extends RecyclerView.ViewHolder {
         private ImageView mItemImageView;
 
@@ -177,10 +207,17 @@ public class PhotoGalleryFragment extends Fragment {
     }
 
     private class FetchItemsTask extends AsyncTask<Void, Void, List<GalleryItem>> {
+
         private final String mQuery;
 
         public FetchItemsTask(String query) {
             mQuery = query;
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            showProgressDialog();
         }
 
         @Override
@@ -197,6 +234,7 @@ public class PhotoGalleryFragment extends Fragment {
         protected void onPostExecute(List<GalleryItem> galleryItems) {
             mItems = galleryItems;
             setupAdapter();
+            dismissProgressDialog();
         }
     }
 }
